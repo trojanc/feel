@@ -2,10 +2,11 @@ package feel
 
 import (
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_N(t *testing.T) {
@@ -245,6 +246,84 @@ func Test_EvalStringWithScope(t *testing.T) {
 	v, err := EvalStringWithScope(input, Scope{"foo": 5, "bar": 7})
 	assert.NoError(t, err)
 	assert.True(t, N(12).Equal(*v.(*Number)))
+}
+
+func Test_EvalStringWithScopeStruct(t *testing.T) {
+	type ScopeStruct struct {
+		Str     string
+		StrPtr  *string
+		Int     int
+		IntPtr  *int
+		Bool    bool
+		BoolPtr *bool
+	}
+
+	type ScopeObj struct {
+		Str       string
+		StrPtr    *string
+		Int       int
+		IntPtr    *int
+		Bool      bool
+		BoolPtr   *bool
+		Nested    ScopeStruct
+		NestedPtr *ScopeStruct
+	}
+
+	ptrString := "bar"
+	ptrInt := 7
+	ptrBoolTrue := true
+	ptrBoolFalse := false
+	// Create a table of tests
+	tests := []struct {
+		expression string
+		scope      Scope
+		expect     any
+	}{
+		// ScopeObj fields
+		{expression: `get value(struct, "Str")`, scope: Scope{"struct": ScopeObj{Str: "foo"}}, expect: "foo"},
+		{expression: `get value(struct, "StrPtr")`, scope: Scope{"struct": ScopeObj{StrPtr: &ptrString}}, expect: "bar"},
+		{expression: `get value(struct, "Int")`, scope: Scope{"struct": ScopeObj{Int: 5}}, expect: N(5)},
+		{expression: `get value(struct, "IntPtr")`, scope: Scope{"struct": ScopeObj{IntPtr: &ptrInt}}, expect: N(7)},
+		{expression: `get value(struct, "Bool")`, scope: Scope{"struct": ScopeObj{Bool: true}}, expect: true},
+		{expression: `get value(struct, "BoolPtr")`, scope: Scope{"struct": ScopeObj{BoolPtr: &ptrBoolTrue}}, expect: true},
+		{expression: `get value(struct, "BoolPtr")`, scope: Scope{"struct": ScopeObj{BoolPtr: &ptrBoolFalse}}, expect: false},
+
+		// Pointer to ScopeObj tests
+		{expression: `get value(struct, "Str")`, scope: Scope{"struct": &ScopeObj{Str: "foo"}}, expect: "foo"},
+		{expression: `get value(struct, "StrPtr")`, scope: Scope{"struct": &ScopeObj{StrPtr: &ptrString}}, expect: "bar"},
+		{expression: `get value(struct, "Int")`, scope: Scope{"struct": &ScopeObj{Int: 5}}, expect: N(5)},
+		{expression: `get value(struct, "IntPtr")`, scope: Scope{"struct": &ScopeObj{IntPtr: &ptrInt}}, expect: N(7)},
+		{expression: `get value(struct, "Bool")`, scope: Scope{"struct": &ScopeObj{Bool: true}}, expect: true},
+		{expression: `get value(struct, "BoolPtr")`, scope: Scope{"struct": &ScopeObj{BoolPtr: &ptrBoolTrue}}, expect: true},
+		{expression: `get value(struct, "BoolPtr")`, scope: Scope{"struct": &ScopeObj{BoolPtr: &ptrBoolFalse}}, expect: false},
+
+		// ScopeStruct fields via Nested
+		{expression: `get value(get value(struct, "Nested"), "Str")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{Str: "foo"}}}, expect: "foo"},
+		{expression: `get value(get value(struct, "Nested"), "StrPtr")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{StrPtr: &ptrString}}}, expect: "bar"},
+		{expression: `get value(get value(struct, "Nested"), "Int")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{Int: 1}}}, expect: N(1)},
+		{expression: `get value(get value(struct, "Nested"), "IntPtr")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{IntPtr: &ptrInt}}}, expect: N(7)},
+		{expression: `get value(get value(struct, "Nested"), "Bool")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{Bool: true}}}, expect: true},
+		{expression: `get value(get value(struct, "Nested"), "BoolPtr")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{BoolPtr: &ptrBoolTrue}}}, expect: true},
+		{expression: `get value(get value(struct, "Nested"), "BoolPtr")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{BoolPtr: &ptrBoolFalse}}}, expect: false},
+
+		// ScopeStruct fields via NestedPtr
+		{expression: `get value(get value(struct, "NestedPtr"), "Str")`, scope: Scope{"struct": ScopeObj{NestedPtr: &ScopeStruct{Str: "foo"}}}, expect: "foo"},
+		{expression: `get value(get value(struct, "NestedPtr"), "StrPtr")`, scope: Scope{"struct": ScopeObj{NestedPtr: &ScopeStruct{StrPtr: &ptrString}}}, expect: "bar"},
+		{expression: `get value(get value(struct, "NestedPtr"), "Int")`, scope: Scope{"struct": ScopeObj{NestedPtr: &ScopeStruct{Int: 1}}}, expect: N(1)},
+		{expression: `get value(get value(struct, "NestedPtr"), "IntPtr")`, scope: Scope{"struct": ScopeObj{NestedPtr: &ScopeStruct{IntPtr: &ptrInt}}}, expect: N(7)},
+		{expression: `get value(get value(struct, "NestedPtr"), "Bool")`, scope: Scope{"struct": ScopeObj{NestedPtr: &ScopeStruct{Bool: true}}}, expect: true},
+		{expression: `get value(get value(struct, "NestedPtr"), "BoolPtr")`, scope: Scope{"struct": ScopeObj{NestedPtr: &ScopeStruct{BoolPtr: &ptrBoolTrue}}}, expect: true},
+		{expression: `get value(get value(struct, "NestedPtr"), "BoolPtr")`, scope: Scope{"struct": ScopeObj{NestedPtr: &ScopeStruct{BoolPtr: &ptrBoolFalse}}}, expect: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.expression, func(t *testing.T) {
+			res, err := EvalStringWithScope(tc.expression, tc.scope)
+			assert.NoError(t, err)
+			assert.Empty(t, cmp.Diff(tc.expect, res))
+		})
+	}
+
 }
 
 func Test_EvalStringWithScope_contexts(t *testing.T) {
