@@ -163,6 +163,9 @@ func installContextFunctions(prelude *Prelude) {
 // If the value is a pointer to any internal feel objects they will remain as is,
 // any other value will be dereferenced if it is a pointer
 func dereferencePtr(val any) any {
+	if val == nil {
+		return null
+	}
 	switch val.(type) {
 	// Don't dereference
 	case *Number, *NullValue, *FEELDate, *FEELDatetime, *FEELDuration, *FEELTime:
