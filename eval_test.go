@@ -267,6 +267,8 @@ func Test_EvalStringWithScopeStruct(t *testing.T) {
 		BoolPtr   *bool
 		Nested    ScopeStruct
 		NestedPtr *ScopeStruct
+		List      []any
+		ListPtr   *[]any
 	}
 
 	ptrString := "bar"
@@ -296,6 +298,8 @@ func Test_EvalStringWithScopeStruct(t *testing.T) {
 		{expression: `get value(struct, "Bool")`, scope: Scope{"struct": &ScopeObj{Bool: true}}, expect: true},
 		{expression: `get value(struct, "BoolPtr")`, scope: Scope{"struct": &ScopeObj{BoolPtr: &ptrBoolTrue}}, expect: true},
 		{expression: `get value(struct, "BoolPtr")`, scope: Scope{"struct": &ScopeObj{BoolPtr: &ptrBoolFalse}}, expect: false},
+		{expression: `get value(struct, "List")`, scope: Scope{"struct": &ScopeObj{List: []any{1, 2}}}, expect: []any{1, 2}},
+		{expression: `get value(struct, "ListPtr")`, scope: Scope{"struct": &ScopeObj{ListPtr: &[]any{1, 2}}}, expect: []any{1, 2}},
 
 		// ScopeStruct fields via Nested
 		{expression: `get value(get value(struct, "Nested"), "Str")`, scope: Scope{"struct": ScopeObj{Nested: ScopeStruct{Str: "foo"}}}, expect: "foo"},
