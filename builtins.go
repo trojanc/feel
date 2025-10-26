@@ -3,11 +3,12 @@ package feel
 import (
 	"errors"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"math"
 	"reflect"
 	"sort"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 func toFEELIndex(idx int) int {
@@ -16,6 +17,55 @@ func toFEELIndex(idx int) int {
 
 func fromFEELIndex(idx int) int {
 	return idx - 1
+}
+
+func getMapping(input any, output map[string]any) error {
+	if output == nil {
+		return errors.New("output map cannot be nil")
+	}
+
+	v := reflect.ValueOf(input)
+	if !v.IsValid() {
+		return errors.New("input is invalid")
+	}
+
+	// Dereference pointer if needed
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return errors.New("input is a nil pointer")
+		}
+		v = v.Elem()
+	}
+
+	if v.Kind() == reflect.Map {
+		// Add all key-value pairs from the input map to the output map
+		for iter := v.MapRange(); iter.Next(); {
+			key := iter.Key()
+			value := iter.Value()
+			if key.Kind() == reflect.String {
+				output[key.String()] = value.Interface()
+			}
+		}
+	}
+	if v.Kind() == reflect.Struct {
+
+		t := v.Type()
+		for i := 0; i < v.NumField(); i++ {
+			fieldType := t.Field(i)
+			if fieldType.PkgPath != "" {
+				continue // skip unexported fields
+			}
+
+			fieldVal := v.Field(i)
+			if !fieldVal.CanInterface() {
+				continue // skip if value can't be interfaced
+			}
+
+			output[fieldType.Name] = fieldVal.Interface()
+		}
+	}
+
+	return nil
 }
 
 func decodeKWArgs(input map[string]any, output any) error {
