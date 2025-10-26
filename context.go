@@ -90,7 +90,7 @@ func installContextFunctions(prelude *Prelude) {
 				Context: map[string]any{},
 				Key:     key,
 			}
-			if err := getMapping(kwargs["context"], argsByKey.Context); err == nil {
+			if err := getContextMap(kwargs["context"], argsByKey.Context); err == nil {
 				if v, ok := argsByKey.Context[argsByKey.Key]; ok {
 					return dereferencePtr(v), nil
 				} else {
