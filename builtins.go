@@ -19,7 +19,10 @@ func fromFEELIndex(idx int) int {
 	return idx - 1
 }
 
-func getMapping(input any, output map[string]any) error {
+// getContextMap takes any input type and puts each value in the output map.
+// If the input is a struct it will use the json tag if available, else the field name will remain as defined on the struct
+// If the input is a map, each key value of the map will be copied to the output map
+func getContextMap(input any, output map[string]any) error {
 	if output == nil {
 		return errors.New("output map cannot be nil")
 	}
@@ -42,8 +45,8 @@ func getMapping(input any, output map[string]any) error {
 		for iter := v.MapRange(); iter.Next(); {
 			key := iter.Key()
 			value := iter.Value()
-			if key.Kind() == reflect.String {
-				output[key.String()] = value.Interface()
+			if keyStr, ok := key.Interface().(string); ok {
+				output[keyStr] = value.Interface()
 			}
 		}
 	}
@@ -61,7 +64,23 @@ func getMapping(input any, output map[string]any) error {
 				continue // skip if value can't be interfaced
 			}
 
-			output[fieldType.Name] = fieldVal.Interface()
+			// Use json tag if available
+			jsonTag := fieldType.Tag.Get("json")
+			if jsonTag == "-" {
+				continue // skip fields explicitly ignored
+			}
+
+			key := fieldType.Name
+			if jsonTag != "" {
+				// Handle tag options like "name,omitempty"
+				if commaIdx := strings.Index(jsonTag, ","); commaIdx != -1 {
+					key = jsonTag[:commaIdx]
+				} else {
+					key = jsonTag
+				}
+			}
+
+			output[key] = fieldVal.Interface()
 		}
 	}
 
